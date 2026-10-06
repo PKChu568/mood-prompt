@@ -1,0 +1,30 @@
+[project]
+name = "mood-prompt"
+version = "0.1.0"
+description = "From-scratch control stack for the Reachy Mini robot (Dynamixel driver, Stewart kinematics, MuJoCo sim, moods)"
+readme = "README.md"
+authors = [
+    { name = "PKChu568", email = "299573982+PKChu568@users.noreply.github.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.4.6",
+    "pyserial>=3.5",
+]
+
+[project.optional-dependencies]
+sim = [
+    "mujoco>=3.15.0",
+]
+daemon = [
+    "websockets>=17.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.6,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
