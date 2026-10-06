@@ -77,10 +77,57 @@ def encode_instruction_packet(id: int, instruction: int, params: bytes = b"") ->
 
 
 @dataclass
+class InstructionPacket:
+    id: int
+    instruction: int
+    params: bytes
+
+
+def decode_instruction_packet(data: bytes) -> InstructionPacket:
+    """Parse an instruction packet, validating header, length, and CRC.
+
+    The mirror of :func:`encode_instruction_packet`. Raises
+    :class:`PacketError` on a malformed field or CRC mismatch.
+    """
+    if len(data) < 10:
+        raise PacketError(f"packet too short: {len(data)} bytes")
+    if data[:4] != HEADER:
+        raise PacketError(f"bad header: {data[:4].hex()}")
+
+    length = data[5] | (data[6] << 8)
+    expected_total = 7 + length
+    if len(data) != expected_total:
+        raise PacketError(
+            f"length mismatch: field says {length} "
+            f"(total {expected_total}), got {len(data)} bytes"
+        )
+
+    received_crc = data[-2] | (data[-1] << 8)
+    if compute_crc(data[:-2]) != received_crc:
+        raise PacketError("CRC mismatch")
+
+    payload = _unstuff(data[7:-2])  # instruction byte + params
+    return InstructionPacket(id=data[4], instruction=payload[0], params=payload[1:])
+
+
+@dataclass
 class StatusPacket:
     id: int
     error: int
     params: bytes
+
+
+def encode_status_packet(id: int, error: int, params: bytes = b"") -> bytes:
+    """Build a status packet (instruction byte 0x55), stuffed and CRC'd.
+
+    The mirror of :func:`decode_status_packet`; used by the fake servo to
+    reply to the driver.
+    """
+    payload = _stuff(bytes([0x55, error & 0xFF]) + params)
+    length = len(payload) + 2  # payload bytes + 2 CRC bytes
+    body = HEADER + bytes([id & 0xFF, length & 0xFF, (length >> 8) & 0xFF]) + payload
+    crc = compute_crc(body)
+    return body + bytes([crc & 0xFF, (crc >> 8) & 0xFF])
 
 
 def decode_status_packet(data: bytes) -> StatusPacket:
