@@ -87,4 +87,13 @@ def load_trajectory(name: str) -> Trajectory:
     head = np.asarray([frame["head"] for frame in frames], dtype=float)
     antennas = np.asarray([frame["antennas"] for frame in frames], dtype=float)
     body_yaw = np.asarray([frame["body_yaw"] for frame in frames], dtype=float)
+
+    # The dataset stores antennas in [left, right] order, which is the
+    # opposite of our [right, left] convention (matching the backends'
+    # right_antenna/left_antenna actuator order). Confirmed by watching mood
+    # playback in sim: without this swap the two antennas are mirrored. We
+    # normalise here, at the single data-entry point, so every consumer
+    # (sim demo, daemon, hardware) sees a consistent [right, left].
+    antennas = antennas[:, ::-1].copy()
+
     return Trajectory(time=time, head=head, antennas=antennas, body_yaw=body_yaw)

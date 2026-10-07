@@ -1,5 +1,7 @@
 """Validate the emotions library: metadata, trajectories, and selector."""
 
+import json
+
 import numpy as np
 import pytest
 
@@ -11,6 +13,16 @@ from mood_prompt.moods.library import (
 from mood_prompt.moods.selector import FALLBACK_MOOD, select_mood
 
 METADATA = load_metadata()
+
+
+def test_antennas_swapped_to_right_left_convention():
+    # The dataset stores antennas [left, right]; load_trajectory normalises
+    # to our [right, left] convention. Verify against the raw JSON.
+    entry = METADATA[0]
+    raw = json.loads((library_dir() / entry.motion_file).read_text())
+    raw_first = raw["set_target_data"][0]["antennas"]
+    traj = load_trajectory(entry.motion_file)
+    assert list(traj.antennas[0]) == [raw_first[1], raw_first[0]]
 
 
 def test_metadata_nonempty():

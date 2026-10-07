@@ -32,6 +32,7 @@ class Daemon:
         tick_hz: float = 100.0,
         broadcast_hz: float = 20.0,
         step_sim: bool = False,
+        render: bool = False,
     ):
         self.backend = backend
         self.host = host
@@ -39,6 +40,7 @@ class Daemon:
         self._tick_dt = 1.0 / tick_hz
         self._broadcast_every = max(1, int(tick_hz / broadcast_hz))
         self._step_sim = step_sim
+        self._render = render
         self._ik = StewartIK()
         self._clients: set = set()
 
@@ -71,7 +73,10 @@ class Daemon:
         n = 0
         while True:
             if self._step_sim:
-                self.backend.step()
+                if self._render:
+                    self.backend.step_and_render()
+                else:
+                    self.backend.step()
             if self._clients and n % self._broadcast_every == 0:
                 payload = self._state_msg().to_json()
                 websockets.broadcast(self._clients, payload)
@@ -111,11 +116,22 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--port", default="/dev/ttyUSB0", help="serial port (hardware)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--ws-port", type=int, default=8765)
+    parser.add_argument(
+        "--render",
+        action="store_true",
+        help="open the MuJoCo viewer (sim only; macOS needs mjpython)",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO)
     backend, step_sim = _build_backend(args)
-    Daemon(backend, host=args.host, port=args.ws_port, step_sim=step_sim).run()
+    Daemon(
+        backend,
+        host=args.host,
+        port=args.ws_port,
+        step_sim=step_sim,
+        render=args.render,
+    ).run()
 
 
 if __name__ == "__main__":
