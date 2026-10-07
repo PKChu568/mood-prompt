@@ -8,7 +8,9 @@ Head poses are applied exactly as Pollen's SDK does: the 4x4 pose as-is
 (identity = neutral), with the head Z offset handled inside the IK. No
 axis remapping or re-referencing. Angles are clamped to the horn limits.
 
-Run: uv run --extra sim mjpython scripts/demo_mood_sim.py [mood_name]
+The mood's audio clip plays in sync if the 'audio' extra is installed.
+
+Run: uv run --extra sim --extra audio mjpython scripts/demo_mood_sim.py [mood]
 (macOS needs mjpython, not python, for the MuJoCo viewer.)
 """
 
@@ -17,6 +19,7 @@ import time
 
 from mood_prompt.backend.mujoco_sim import MujocoBackend
 from mood_prompt.kinematics.stewart_ik import StewartIK
+from mood_prompt.moods import audio
 from mood_prompt.moods.library import load_trajectory
 
 
@@ -28,8 +31,15 @@ def main() -> None:
     backend.enable()
 
     print(f"playing '{mood}': {len(traj)} frames, {traj.time[-1]:.1f}s")
+    sound = audio.audio_path(mood)
     t0 = time.time()
     try:
+        # Start audio and motion together so they stay in sync.
+        if sound is not None:
+            try:
+                audio.play(sound)
+            except audio.AudioUnavailable as exc:
+                print(f"(no audio: {exc})")
         for i in range(len(traj)):
             horns = ik.inverse_kinematics(traj.head[i], clamp=True)
             head = [float(traj.body_yaw[i]), *horns]
@@ -40,6 +50,7 @@ def main() -> None:
                 backend.set_target_joints(head, antennas)
                 backend.step_and_render()
     finally:
+        audio.stop()
         backend.close()
 
 

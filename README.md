@@ -31,11 +31,11 @@ uv sync
 ```
 
 `uv sync` installs the exact dependency versions pinned in `uv.lock`. The
-`mujoco` (sim backend) and `websockets` (daemon) dependencies live in optional
-groups:
+`mujoco` (sim backend), `websockets` (daemon), and `sounddevice`/`soundfile`
+(mood audio) dependencies live in optional groups:
 
 ```bash
-uv sync --extra sim --extra daemon
+uv sync --extra sim --extra daemon --extra audio
 ```
 
 Run commands through `uv run` (no manual venv activation needed), e.g.:
@@ -100,7 +100,7 @@ Mood-Prompt/
 │   ├── smoke_mujoco.py                # open the MuJoCo viewer and move the robot
 │   ├── run_daemon.py                  # python scripts/run_daemon.py --backend sim|hardware
 │   ├── list_moods.py                  # print all 81 moods + descriptions
-│   └── play_mood.py                   # connect to a running daemon, play one named mood
+│   └── play_mood.py                   # play a mood (motion + audio) through a running daemon
 │
 ├── tests/
 │   ├── test_protocol_packet.py        # packet encode/decode + CRC known-answer tests
