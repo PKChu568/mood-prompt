@@ -14,7 +14,14 @@ re-IDed to match before use):
     id 9      left antenna  (XL330-M077-T)
 
 The head vector mirrors the sim backend: [yaw, stewart_1..6] (7 values);
-antennas is [right, left] (2 values). Units are radians.
+antennas is [right, left] (2 values), matching Pollen's documented SDK
+order. Units are radians.
+
+Antenna rotation direction is unconfirmed against real hardware: the order
+and joint sides match Pollen's convention and the MJCF, but the sign of
+each antenna's rotation in sim looked questionable during manual testing.
+Verify once a physical unit exists; do not flip it to satisfy the sim, as
+that would desync from the authoritative [right, left] convention.
 """
 
 from __future__ import annotations

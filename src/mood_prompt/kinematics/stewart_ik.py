@@ -1,15 +1,15 @@
-"""Closed-form inverse/forward kinematics for the rotary Stewart platform.
+"""Closed-form inverse / numerical forward kinematics for Reachy Mini's
+rotary Stewart platform, using Pollen's vendored geometry.
 
-This is a 6-RSS platform: each leg is a servo horn (length ``h``) rotating
-about a fixed axis, joined by a rigid rod (length ``d``) to a platform
-anchor. IK solves per leg for the horn angle; FK is an iterative solve of
-the same constraints (there is no simple closed form for forward).
+Each leg is a servo horn (length ``h``) rotating about its motor frame's
+local Z axis, joined by a rigid rod (length ``d``) to an attachment point
+on the moving platform. IK is solved per leg in the motor's local frame,
+where the horn tip is ``(h cos a, h sin a, 0)``; the assembly-mode branch
+is chosen per leg by the vendored ``solution`` sign (no guessing).
 
-Pose convention: a 4x4 homogeneous transform of the platform frame
-relative to the base frame, with the IDENTITY transform being the URDF
-rest pose (all horn angles = their rest value, taken as 0 here).
-
-Geometry is unverified against real hardware; see geometry.py.
+Pose convention (matching Pollen's AnalyticalKinematics.ik): the head pose
+is a 4x4 transform with IDENTITY as the neutral pose. Before solving, the
+head Z offset is added to the pose translation. No axis remapping.
 """
 
 from __future__ import annotations
@@ -21,127 +21,102 @@ from .geometry import DEFAULT_GEOMETRY, StewartGeometry
 Pose = np.ndarray  # 4x4 homogeneous transform
 
 
-def _wrap(angle: float) -> float:
-    """Wrap an angle to (-pi, pi]."""
-    return (angle + np.pi) % (2 * np.pi) - np.pi
-
-
-def _horn_frame(axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Return two unit vectors spanning the plane the horn rotates in.
-
-    ``u`` is the in-plane reference (horn angle 0 points along it) and ``v``
-    is perpendicular to both ``u`` and the axis, forming a right-handed set.
-    The absolute choice of ``u`` is arbitrary as long as IK and FK share it,
-    so we pick a stable vector not parallel to the axis.
-    """
-    axis = axis / np.linalg.norm(axis)
-    seed = np.array([1.0, 0.0, 0.0])
-    if abs(np.dot(seed, axis)) > 0.9:
-        seed = np.array([0.0, 1.0, 0.0])
-    u = seed - np.dot(seed, axis) * axis
-    u /= np.linalg.norm(u)
-    v = np.cross(axis, u)
-    return u, v
-
-
 class StewartIK:
     def __init__(self, geometry: StewartGeometry = DEFAULT_GEOMETRY):
         self.g = geometry
-        self._frames = [_horn_frame(a) for a in geometry.horn_axes]
-        # Horn tip at angle alpha: tip = base + h*(cos(alpha)*u + sin(alpha)*v).
-        # Calibrate a per-leg rest angle so that alpha from inverse_kinematics
-        # at the identity pose lands near 0 (keeps the solver well-behaved).
-        # Per-leg rest horn angle (raw), used to disambiguate the two IK
-        # branches by choosing the one closest to rest.
-        self._rest = np.zeros(6)
-        self._rest = self.inverse_kinematics(np.eye(4), _raw=True)
 
-    def inverse_kinematics(self, pose: Pose, _raw: bool = False) -> list[float]:
-        """Return the 6 horn angles (radians) achieving ``pose``.
+    def _apply_offset(self, pose: Pose) -> Pose:
+        p = np.array(pose, dtype=float)
+        p[2, 3] += self.g.head_z_offset
+        return p
 
-        Raises ``ValueError`` if a leg cannot reach the pose (the asin
-        argument leaves [-1, 1], i.e. the rod can't bridge horn tip to
-        platform anchor).
+    def inverse_kinematics(
+        self,
+        pose: Pose,
+        reference: list[float] | np.ndarray | None = None,
+        clamp: bool = False,
+    ) -> list[float]:
+        """Return the 6 horn angles (radians) for a head ``pose``.
+
+        ``reference`` is accepted for API parity with trajectory playback
+        but the branch here is fixed by the vendored ``solution`` sign, so a
+        reference is not needed for continuity. ``clamp`` bounds each angle
+        to the leg's horn limits. Raises ``ValueError`` if a leg cannot
+        reach the pose and ``clamp`` is not set.
         """
-        R = pose[:3, :3]
-        T = pose[:3, 3]
+        pose = self._apply_offset(pose)
         h = self.g.horn_length
         d = self.g.rod_length
         angles = []
         for k in range(6):
-            b = self.g.base_points[k]
-            p = self.g.platform_points[k]
-            u, v = self._frames[k]
+            # Branch (rod attachment) point into the motor's local frame.
+            # Pollen's data stores T_motor_world; their Rust solve computes
+            #   branch_motor = inv(t_world_motor) * pose * branch,
+            # and t_world_motor = inv(T_motor_world), so the net transform is
+            # T_motor_world * pose * branch. The horn then sweeps the motor
+            # frame's XY plane about its local Z.
+            q_platform = pose @ np.array([*self.g.branch_position[k], 1.0])
+            qh = self.g.motor_world[k] @ q_platform
+            x, y, z = qh[:3]
 
-            # Platform anchor in base frame, and leg vector from horn origin.
-            # Pose is relative to the rest pose, so the platform frame sits
-            # at platform_rest_origin when pose == identity.
-            q = self.g.platform_rest_origin + T + R @ p
-            lk = q - b
-            l2 = float(lk @ lk)
-
-            # Horn tip = b + h*(cos a * u + sin a * v); |tip - q| = d gives
-            #   e*cos a + f*sin a = g,  solved as the asin/atan2 form below.
-            e = 2.0 * h * (lk @ u)
-            f = 2.0 * h * (lk @ v)
-            g = l2 + h * h - d * d
+            # Horn tip t = (h cos a, h sin a, 0); |t - q|^2 = d^2 expands to
+            #   2h(x cos a + y sin a) = x^2+y^2+z^2 + h^2 - d^2 = g.
+            e = 2.0 * h * x
+            f = 2.0 * h * y
+            g = x * x + y * y + z * z + h * h - d * d
 
             denom = np.hypot(e, f)
-            ratio = g / denom
+            ratio = g / denom if denom != 0 else 2.0
             if not -1.0 <= ratio <= 1.0:
-                if _raw:
-                    ratio = np.clip(ratio, -1.0, 1.0)
+                if clamp:
+                    ratio = float(np.clip(ratio, -1.0, 1.0))
                 else:
-                    raise ValueError(f"leg {k} unreachable for this pose (|ratio|>1)")
-            # e*cos a + f*sin a = g  <=>  R*cos(a - atan2(f,e)) = g, with
-            # R = hypot(e, f). Two solutions a = atan2(f,e) +/- acos(g/R);
-            # pick the one whose horn tip sits rod_length from the anchor and
-            # lies closest to rest (resolves the assembly-mode ambiguity).
+                    raise ValueError(f"leg {k} unreachable for this pose")
+            # e cos a + f sin a = g  <=>  hypot(e,f) cos(a - atan2(f,e)) = g.
+            # The two roots are atan2(f,e) +/- acos(ratio); the vendored
+            # solution sign selects the correct assembly mode.
             phase = np.arctan2(f, e)
             delta = np.arccos(ratio)
-            cand = [phase + delta, phase - delta]
-            rest = self._rest[k]
-            best = min(
-                cand,
-                key=lambda a: (
-                    abs(np.linalg.norm(self._tip(k, a) - q) - d),
-                    abs(_wrap(a - rest)),
-                ),
-            )
-            angles.append(best)
+            angle = phase + self.g.solution[k] * delta
+            angle = _wrap(angle)
+            if clamp:
+                lo, hi = self.g.horn_limits[k]
+                angle = min(max(angle, lo), hi)
+            angles.append(angle)
+        return angles
 
-        result = np.array(angles)
-        if not _raw:
-            result = result - self._rest
-        return result.tolist()
-
-    def _tip(self, k: int, alpha_raw: float) -> np.ndarray:
-        b = self.g.base_points[k]
-        u, v = self._frames[k]
-        return b + self.g.horn_length * (np.cos(alpha_raw) * u + np.sin(alpha_raw) * v)
+    def _tip_world(self, k: int, angle: float) -> np.ndarray:
+        # Horn tip in the motor frame -> platform/world frame. IK transforms
+        # a world point by motor_world, so the inverse maps motor -> world.
+        h = self.g.horn_length
+        tip_motor = np.array([h * np.cos(angle), h * np.sin(angle), 0.0, 1.0])
+        return (self.g.motor_world_inv[k] @ tip_motor)[:3]
 
     def forward_kinematics(
-        self, horn_angles: list[float], max_iter: int = 100, tol: float = 1e-9
+        self, horn_angles: list[float], max_iter: int = 100, tol: float = 1e-12
     ) -> Pose:
-        """Return the platform pose produced by the 6 ``horn_angles``.
+        """Return the head pose produced by the 6 ``horn_angles``.
 
-        Solved iteratively (Gauss-Newton on the 6 rod-length residuals over
-        the 6-DOF pose), seeded at the rest pose. There is no closed-form
-        forward solution for a Stewart platform.
+        Numerical (Gauss-Newton on the 6 rod-length residuals over the 6-DOF
+        pose). Returns the pose in the same convention as ``inverse_kinematics``
+        input (head Z offset removed), so IK/FK round-trip.
         """
-        raw = np.asarray(horn_angles) + self._rest
-        tips = np.array([self._tip(k, raw[k]) for k in range(6)])
+        angles = np.asarray(horn_angles, dtype=float)
+        tips = np.array([self._tip_world(k, angles[k]) for k in range(6)])
         d = self.g.rod_length
 
-        # Pose parameters: translation (3) + rotation vector (3).
-        x = np.zeros(6)
+        # Seed at the offset-applied neutral so Gauss-Newton converges to the
+        # physical assembly mode (the Stewart FK has multiple solutions; a
+        # zero seed can land on a spurious branch). tz starts at the head Z
+        # offset, which is where the platform sits at the neutral pose.
+        x = np.array([0.0, 0.0, self.g.head_z_offset, 0.0, 0.0, 0.0])
 
         def residuals(x: np.ndarray) -> np.ndarray:
             pose = _params_to_pose(x)
             R, T = pose[:3, :3], pose[:3, 3]
             res = np.empty(6)
             for k in range(6):
-                q = self.g.platform_rest_origin + T + R @ self.g.platform_points[k]
+                q = R @ self.g.branch_position[k] + T
                 res[k] = np.sum((q - tips[k]) ** 2) - d * d
             return res
 
@@ -149,7 +124,6 @@ class StewartIK:
             r = residuals(x)
             if np.max(np.abs(r)) < tol:
                 break
-            # Numerical Jacobian (6x6).
             J = np.empty((6, 6))
             eps = 1e-7
             for j in range(6):
@@ -159,11 +133,17 @@ class StewartIK:
             step, *_ = np.linalg.lstsq(J, -r, rcond=None)
             x = x + step
 
-        return _params_to_pose(x)
+        pose = _params_to_pose(x)
+        pose[2, 3] -= self.g.head_z_offset  # back to input convention
+        return pose
+
+
+def _wrap(angle: float) -> float:
+    """Wrap an angle to (-pi, pi]."""
+    return (angle + np.pi) % (2 * np.pi) - np.pi
 
 
 def _params_to_pose(x: np.ndarray) -> Pose:
-    """Map [tx, ty, tz, rx, ry, rz] (rotation vector) to a 4x4 transform."""
     pose = np.eye(4)
     pose[:3, 3] = x[:3]
     pose[:3, :3] = _rotvec_to_matrix(x[3:])
@@ -179,7 +159,6 @@ def _rotvec_to_matrix(rv: np.ndarray) -> np.ndarray:
     return np.eye(3) + np.sin(theta) * kx + (1 - np.cos(theta)) * (kx @ kx)
 
 
-# Module-level convenience wrappers using the default geometry.
 _DEFAULT = None
 
 

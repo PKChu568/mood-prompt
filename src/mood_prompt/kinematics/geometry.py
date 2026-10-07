@@ -1,80 +1,76 @@
-"""Stewart-platform geometry constants (data, not logic).
+"""Stewart-platform geometry, loaded from Pollen Robotics' kinematics data.
 
-Extracted from robot/reachy_mini_description/urdf/robot.urdf by
-scripts/extract_stewart_geometry.py. All lengths in metres, in the base
-link (body_down_3dprint) and platform link (xl_330) frames respectively.
+The constants come from ``robot/reachy_mini_description/kinematics/
+kinematics_data.json`` (vendored from Pollen's Reachy Mini SDK, Apache-2.0;
+see the NOTICE.md beside it). Using their data -- rather than our own URDF
+extraction -- means our IK applies head poses in exactly the frame
+convention the mood dataset is authored against.
 
-NOT verified against a physical robot -- only against the URDF numbers.
+Per motor the data gives:
+  T_motor_world   4x4 motor frame in the platform/world frame. The horn
+                  rotates about this frame's local Z, sweeping in its XY
+                  plane; the translation is the horn pivot.
+  branch_position rod attachment point on the moving platform (head frame).
+  solution        assembly-mode branch sign (0 -> +1, else -1).
+  limits          (lower, upper) horn angle limits in radians.
+
+Scalars: motor_arm_length (horn), rod_length, head_z_offset (added to a
+target pose's Z before IK, per Pollen's convention).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import dataclass
+from functools import cached_property
+from pathlib import Path
 
 import numpy as np
 
-# Raw values as extracted (see module docstring).
-_BASE_POINTS = [
-    [-0.0328112, 0.0304906, 0.0418333],
-    [-0.0428112, 0.01317, 0.0418333],
-    [-0.01, -0.0436606, 0.0418333],
-    [0.01, -0.0436606, 0.0418333],
-    [0.0428112, 0.01317, 0.0418333],
-    [0.0328112, 0.0304906, 0.0418333],
-]
-
-_HORN_AXES = [
-    [0.8660266281777007, -0.49999787926917255, -3.673205103346574e-06],
-    [0.8660229549648076, -0.5000042414425404, -3.673205103346574e-06],
-    [2.653589793335038e-06, 0.999999999989733, -3.673205103346574e-06],
-    [-3.471782471067467e-14, 0.9999999999932537, -3.673205103346574e-06],
-    [-0.8660266281777007, -0.49999787926917255, -3.673205103346574e-06],
-    [-0.8660229549648076, -0.5000042414425404, -3.673205103346574e-06],
-]
-
-# Platform anchors expressed in the platform rest frame (base-aligned,
-# origin at PLATFORM_REST_ORIGIN). At the identity pose these map back to
-# the URDF rest anchors, each exactly rod_length from its horn tip.
-_PLATFORM_POINTS = [
-    [-0.043526929302617534, 2.4877750886415084e-07, 1.1393882748400586e-07],
-    [-0.050526964758975196, -0.012124673068495507, 1.4538803808084033e-07],
-    [-0.028763445664933676, -0.049819712712483394, 5.412337245047638e-16],
-    [-0.014763614271292406, -0.04981970475149036, 0.0],
-    [0.006999875337563511, -0.012124246349019329, -2.0816681711721685e-16],
-    [0.0, 0.0, 0.0],
-]
-
-# Platform frame origin relative to the base frame, at the rest pose.
-_PLATFORM_REST_ORIGIN = [0.02176354919186463, 0.02064797713119207, 0.1147709956232715]
+_DATA_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "robot"
+    / "reachy_mini_description"
+    / "kinematics"
+    / "kinematics_data.json"
+)
 
 
 @dataclass(frozen=True)
 class StewartGeometry:
-    """Fixed geometry of the 6-leg Stewart platform.
+    """Stewart-platform geometry from Pollen's kinematics_data.json."""
 
-    base_points:      6x3, horn-joint origins in the base frame.
-    horn_axes:        6x3, horn-joint rotation axes (unit) in the base frame.
-    platform_points:  6x3, rod-to-platform attachment points in the
-                      platform frame.
-    platform_rest_origin: platform-frame origin in the base frame at rest.
-    horn_length:      crank/horn length (m).
-    rod_length:       connecting-rod length (m).
-    """
+    horn_length: float
+    rod_length: float
+    head_z_offset: float
+    # Per motor (length 6):
+    motor_world: np.ndarray  # (6, 4, 4) T_motor_world
+    branch_position: np.ndarray  # (6, 3) platform attachment points
+    solution: np.ndarray  # (6,) assembly-mode sign, +1 or -1
+    horn_limits: np.ndarray  # (6, 2) lower/upper radians
 
-    base_points: np.ndarray = field(
-        default_factory=lambda: np.array(_BASE_POINTS, dtype=float)
-    )
-    horn_axes: np.ndarray = field(
-        default_factory=lambda: np.array(_HORN_AXES, dtype=float)
-    )
-    platform_points: np.ndarray = field(
-        default_factory=lambda: np.array(_PLATFORM_POINTS, dtype=float)
-    )
-    platform_rest_origin: np.ndarray = field(
-        default_factory=lambda: np.array(_PLATFORM_REST_ORIGIN, dtype=float)
-    )
-    horn_length: float = 0.040608
-    rod_length: float = 0.085000
+    @cached_property
+    def motor_world_inv(self) -> np.ndarray:
+        """(6, 4, 4) inverse motor transforms (world -> motor frame)."""
+        return np.array([np.linalg.inv(T) for T in self.motor_world])
+
+    @classmethod
+    def from_json(cls, path: Path = _DATA_PATH) -> "StewartGeometry":
+        data = json.loads(Path(path).read_text())
+        motors = data["motors"]
+        return cls(
+            horn_length=float(data["motor_arm_length"]),
+            rod_length=float(data["rod_length"]),
+            head_z_offset=float(data["head_z_offset"]),
+            motor_world=np.array([m["T_motor_world"] for m in motors], dtype=float),
+            branch_position=np.array(
+                [m["branch_position"] for m in motors], dtype=float
+            ),
+            solution=np.array(
+                [1.0 if m["solution"] else -1.0 for m in motors], dtype=float
+            ),
+            horn_limits=np.array([m["limits"] for m in motors], dtype=float),
+        )
 
 
-DEFAULT_GEOMETRY = StewartGeometry()
+DEFAULT_GEOMETRY = StewartGeometry.from_json()
