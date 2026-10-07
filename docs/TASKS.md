@@ -15,11 +15,11 @@ cluster of files, one clear "done" condition.
 
 ## M0 — Bootstrap
 
-- [ ] **T0.1** `uv init`, set Python `>=3.11`, create `.python-version`.
-- [ ] **T0.2** Add core deps: `pyserial`, `numpy`. Add dev deps: `pytest`.
+- [x] **T0.1** `uv init`, set Python `>=3.11`, create `.python-version`.
+- [x] **T0.2** Add core deps: `pyserial`, `numpy`. Add dev deps: `pytest`.
       Add optional-dependency group `sim` with `mujoco`. Add optional
       group `daemon` with `websockets`.
-- [ ] **T0.3** `uv sync` succeeds; commit `pyproject.toml` + `uv.lock`.
+- [x] **T0.3** `uv sync` succeeds; commit `pyproject.toml` + `uv.lock`.
 
 **Done when:** `uv run python -c "import numpy, serial"` works.
 
@@ -30,28 +30,28 @@ cluster of files, one clear "done" condition.
 Pure wire-format code. No I/O, no hardware, no MuJoCo. Fully testable
 in isolation — do this first since everything else depends on it.
 
-- [ ] **T1.1** `protocol/crc.py` — CRC-16 lookup table (poly `0x8005`)
+- [x] **T1.1** `protocol/crc.py` — CRC-16 lookup table (poly `0x8005`)
       + `compute_crc(data: bytes) -> int`. Write the known-answer test
       *alongside* this (`tests/test_protocol_packet.py::test_crc_known_value`)
       using a byte sequence from ROBOTIS docs before writing any other
       protocol code — this is the highest-risk piece of the whole driver
       (silent wrong-CRC bugs are hard to diagnose later).
-- [ ] **T1.2** `protocol/instructions.py` — opcode constants: `PING =
+- [x] **T1.2** `protocol/instructions.py` — opcode constants: `PING =
       0x01`, `READ = 0x02`, `WRITE = 0x03`, `SYNC_READ = 0x82`,
       `SYNC_WRITE = 0x83`. Just constants, no logic.
-- [ ] **T1.3** `protocol/control_table.py` — register constants for
+- [x] **T1.3** `protocol/control_table.py` — register constants for
       XL330-M288-T: `OPERATING_MODE = (11, 1)`, `TORQUE_ENABLE = (64,
       1)`, `GOAL_CURRENT = (102, 2)`, `GOAL_POSITION = (116, 4)`,
       `PRESENT_CURRENT = (126, 2)`, `PRESENT_POSITION = (132, 4)`,
       `HARDWARE_ERROR_STATUS = (70, 1)`. Use `(address, size_bytes)`
       tuples or a small dataclass — pick whichever, just be consistent.
-- [ ] **T1.4** `protocol/packet.py` — `encode_instruction_packet(id,
+- [x] **T1.4** `protocol/packet.py` — `encode_instruction_packet(id,
       instruction, params) -> bytes` (header + id + len + instruction +
       params + CRC).
-- [ ] **T1.5** `protocol/packet.py` — `decode_status_packet(data: bytes)
+- [x] **T1.5** `protocol/packet.py` — `decode_status_packet(data: bytes)
       -> StatusPacket` (id, error byte, params, CRC-validated). Raise a
       clear exception on CRC mismatch or malformed header.
-- [ ] **T1.6** `tests/test_protocol_packet.py` — round-trip tests:
+- [x] **T1.6** `tests/test_protocol_packet.py` — round-trip tests:
       encode a PING packet, compare byte-for-byte against a known
       ROBOTIS example; encode/decode a WRITE(Goal Position) packet;
       decode a status packet with a deliberately corrupted CRC and
@@ -68,31 +68,31 @@ self-consistent round-trips).
 Depends on M1. Build the fake servo *before* the real driver so the
 driver has something to test against from its first commit.
 
-- [ ] **T2.1** `tests/mock_hardware/fake_dynamixel_servo.py` —
+- [x] **T2.1** `tests/mock_hardware/fake_dynamixel_servo.py` —
       `FakeServo` class: holds an in-memory register dict seeded with
       XL330 defaults (ID, baud, Torque Enable=0, Present Position=2048,
       etc.), `handle_packet(raw: bytes) -> bytes` that decodes an
       instruction packet (via `protocol/`), mutates/reads its register
       dict, and encodes+returns a status packet.
-- [ ] **T2.2** `tests/mock_hardware/fake_dynamixel_servo.py` —
+- [x] **T2.2** `tests/mock_hardware/fake_dynamixel_servo.py` —
       `FakeBus` class: holds multiple `FakeServo`s by ID, routes an
       incoming packet to the right servo (or broadcasts for `SYNC_*`),
       exposed as a `pyserial`-compatible object (`read()`/`write()`) so
       real driver code can talk to it without knowing it's fake. Use
       `serial.serial_for_url("loop://")` or a `socketpair`-backed pair —
       pick one approach and note it in a comment.
-- [ ] **T2.3** `driver/bus.py` — `DynamixelBus.__init__(port, baudrate)`
+- [x] **T2.3** `driver/bus.py` — `DynamixelBus.__init__(port, baudrate)`
       opens a real `pyserial` port; `write_packet(bytes)`,
       `read_packet(timeout) -> bytes`.
-- [ ] **T2.4** `driver/bus.py` — `DynamixelBus.ping(id)`,
+- [x] **T2.4** `driver/bus.py` — `DynamixelBus.ping(id)`,
       `.read(id, address, size)`, `.write(id, address, data)` — build on
       T2.3 + `protocol/`, with timeout + a small retry count (matches
       the `allowed_retries` idea seen in pollen's driver).
-- [ ] **T2.5** `driver/servo.py` — `Servo` wrapper: takes a `bus` + `id`,
+- [x] **T2.5** `driver/servo.py` — `Servo` wrapper: takes a `bus` + `id`,
       exposes named properties (`torque_enable`, `goal_position`,
       `present_position`, ...) that read/write via `control_table.py`
       addresses instead of raw numbers.
-- [ ] **T2.6** `tests/test_mock_servo_bus.py` — instantiate `FakeBus`
+- [x] **T2.6** `tests/test_mock_servo_bus.py` — instantiate `FakeBus`
       with a couple of `FakeServo`s, run `DynamixelBus` against it:
       ping, write Goal Position, read back Present Position, and one
       deliberate timeout case (servo ID not present on the bus).
@@ -110,23 +110,23 @@ only depends on the MJCF assets already in `robot/` and has no
 dependency on M1/M2. **Can start in parallel with M2** if useful, but
 `abstract.py` should land first since both backends implement it.
 
-- [ ] **T3.1** `backend/abstract.py` — `Backend` ABC: `enable()`,
+- [x] **T3.1** `backend/abstract.py` — `Backend` ABC: `enable()`,
       `disable()`, `set_target_joints(head: list[float], antennas:
       list[float])`, `get_present_joints() -> tuple[list[float],
       list[float]]`, `close()`. Keep it exactly this small — expand
       later only when `daemon/server.py` actually needs more.
-- [ ] **T3.2** `backend/mujoco_sim.py` — `MujocoBackend.__init__(scene:
+- [x] **T3.2** `backend/mujoco_sim.py` — `MujocoBackend.__init__(scene:
       str)` loads `robot/reachy_mini_description/mjcf/scene.xml` (or
       the named scene under `mjcf/scenes/`) via `mujoco.MjModel`.
-- [ ] **T3.3** `backend/mujoco_sim.py` — implement `set_target_joints`
+- [x] **T3.3** `backend/mujoco_sim.py` — implement `set_target_joints`
       (write to `data.ctrl`), `get_present_joints` (read `data.qpos` for
       the 9 actuated joints), a `step()` method advancing physics by one
       timestep, and `enable()`/`disable()` as no-ops (sim has no torque
       concept the same way).
-- [ ] **T3.4** `backend/mujoco_sim.py` — minimal run loop or `step_and_render()`
+- [x] **T3.4** `backend/mujoco_sim.py` — minimal run loop or `step_and_render()`
       helper that opens the MuJoCo passive viewer (`mujoco.viewer.launch_passive`)
       so motion is visible during manual testing.
-- [ ] **T3.5** Manual smoke test (not automated yet — no daemon exists):
+- [x] **T3.5** Manual smoke test (not automated yet — no daemon exists):
       a throwaway script that constructs `MujocoBackend`, sets a target,
       steps physics for a few seconds, confirms the viewer shows motion.
       Delete or move into `scripts/` once `scripts/run_daemon.py` exists
@@ -143,22 +143,22 @@ response to `set_target_joints` calls, driven entirely by
 Depends on nothing except the MJCF/URDF files already in `robot/`. Can
 run fully in parallel with M2/M3 — pure math, no I/O.
 
-- [ ] **T4.1** One-off extraction script (can live in `scripts/` or be
+- [x] **T4.1** One-off extraction script (can live in `scripts/` or be
       throwaway): parse `robot/reachy_mini_description/urdf/robot.urdf`
       for the Stewart platform's joint origins, horn length, rod length,
       and base/platform attachment points. Print them as a Python dict
       literal.
-- [ ] **T4.2** `kinematics/geometry.py` — paste the extracted constants
+- [x] **T4.2** `kinematics/geometry.py` — paste the extracted constants
       in as a `StewartGeometry` dataclass (6× base points, 6× platform
       points, horn length, rod length). This is data, not logic.
-- [ ] **T4.3** `kinematics/stewart_ik.py` — `forward_kinematics(horn_angles:
+- [x] **T4.3** `kinematics/stewart_ik.py` — `forward_kinematics(horn_angles:
       list[float]) -> Pose` (4x4 matrix or position+quaternion — match
       whatever `moods/library.py`'s trajectory format expects, see M6).
-- [ ] **T4.4** `kinematics/stewart_ik.py` — `inverse_kinematics(pose:
+- [x] **T4.4** `kinematics/stewart_ik.py` — `inverse_kinematics(pose:
       Pose) -> list[float]` (6 horn angles), implementing the closed-form
       `α_k = asin(g_k / sqrt(e_k²+f_k²)) − atan2(f_k, e_k)` from
       PLAN.md's technical reference.
-- [ ] **T4.5** `tests/test_stewart_ik.py` — round-trip test: pick 5-10
+- [x] **T4.5** `tests/test_stewart_ik.py` — round-trip test: pick 5-10
       synthetic poses (small translations/rotations from neutral), run
       IK → FK, assert recovered pose is within tolerance (start with a
       loose tolerance, e.g. 1mm/0.1°, tighten once passing).
@@ -174,18 +174,18 @@ a real robot (only against the MJCF/URDF numbers).
 Depends on M2 (driver) + M4 (kinematics) + M3 (for the `Backend`
 interface shape).
 
-- [ ] **T5.1** `backend/hardware.py` — `HardwareBackend.__init__(port)`
+- [x] **T5.1** `backend/hardware.py` — `HardwareBackend.__init__(port)`
       opens a `DynamixelBus`, constructs 9 `Servo` instances (6 Stewart +
       1 body yaw + 2 antennas) with their IDs.
-- [ ] **T5.2** `backend/hardware.py` — implement `enable()`/`disable()`
+- [x] **T5.2** `backend/hardware.py` — implement `enable()`/`disable()`
       (torque on/off across all 9 servos), `get_present_joints()` (read
       Present Position from all servos, convert raw ticks → radians).
-- [ ] **T5.3** `backend/hardware.py` — implement `set_target_joints()`:
+- [x] **T5.3** `backend/hardware.py` — implement `set_target_joints()`:
       accept head pose or joint angles, run through
       `kinematics.stewart_ik` if given a pose, convert radians → raw
       ticks, write Goal Position to each Stewart servo + body yaw +
       antennas.
-- [ ] **T5.4** Extend `tests/mock_hardware/fake_dynamixel_servo.py`'s
+- [x] **T5.4** Extend `tests/mock_hardware/fake_dynamixel_servo.py`'s
       `FakeBus` (from T2.2) to represent all 9 servo IDs matching Reachy
       Mini's layout, and add a test instantiating `HardwareBackend`
       against it (same pattern as T2.6, one level up).

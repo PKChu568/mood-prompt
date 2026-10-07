@@ -12,10 +12,10 @@ layer — built without depending on `pip install reachy_mini`.
 
 ## Setup
 
-This project uses [uv](https://docs.astral.sh/uv/) for dependency management, with a venv shared across the `ml` workspace:
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
+`uv` provisions its own Python (3.11+) and a project-local `.venv`:
 
 ```bash
-source ../.venv/bin/activate
 uv sync
 ```
 
@@ -27,11 +27,18 @@ groups:
 uv sync --extra sim --extra daemon
 ```
 
+Run commands through `uv run` (no manual venv activation needed), e.g.:
+
+```bash
+uv run pytest                                            # run the test suite
+uv run --extra sim python scripts/smoke_mujoco.py        # open the MuJoCo viewer
+```
+
 ## Project structure
 
 ```
 Mood-Prompt/
-├── .venv -> ../.venv                  (shared venv, not committed)
+├── .github/workflows/ci.yml           (pytest on Python 3.11 + 3.12 via uv)
 ├── .gitignore
 ├── .python-version                    (3.11)
 ├── README.md
@@ -78,6 +85,8 @@ Mood-Prompt/
 │           └── selector.py            # mood string -> move name (stub lookup for now)
 │
 ├── scripts/
+│   ├── extract_stewart_geometry.py    # one-off: URDF -> Stewart geometry constants
+│   ├── smoke_mujoco.py                # open the MuJoCo viewer and move the robot
 │   ├── run_daemon.py                  # python scripts/run_daemon.py --backend sim|hardware
 │   ├── list_moods.py                  # print all 84 moods + descriptions
 │   └── play_mood.py                   # connect to a running daemon, play one named mood
@@ -116,20 +125,32 @@ Work in progress. See [docs/PLAN.md](docs/PLAN.md) for the full plan and
 technical reference, and [docs/TASKS.md](docs/TASKS.md) for the milestone
 breakdown.
 
-Planned and in progress:
+Done:
 
-- **Protocol** — table-based CRC-16 and Protocol 2.0 packet encode/decode,
-  validated against ROBOTIS's published example byte sequences.
-- **Driver** — serial bus I/O with timeout/retry, tested against a virtual
-  Dynamixel servo over a virtual serial pair.
-- **Kinematics** — closed-form rotary Stewart-platform inverse kinematics
-  (horn angles) plus forward kinematics, with geometry extracted from the
-  URDF/MJCF already in `robot/`.
-- **Backend** — `Backend` abstraction with a MuJoCo sim implementation and a
-  hardware implementation sharing one interface.
-- **Daemon + client** — WebSocket control API and a thin `MiniClient`.
-- **Moods** — loader over the 84-entry emotion library + a stub mood→move
-  selector (the seam for later behavior-cloning work).
+- **M0 — Bootstrap** — `uv` project, Python 3.11+, deps pinned in `uv.lock`,
+  CI running `pytest` on 3.11 + 3.12.
+- **M1 — Protocol** — table-based CRC-16 and Protocol 2.0 packet
+  encode/decode, validated against ROBOTIS's published example byte sequences.
+- **M2 — Driver** — `DynamixelBus` serial I/O with timeout/retry and a `Servo`
+  named-register wrapper, exercised end-to-end against a virtual Dynamixel
+  servo that speaks real Protocol 2.0 bytes.
+- **M3 — Sim backend** — `Backend` abstraction + `MujocoBackend` driving the
+  9 actuated joints, with a headless convergence test and a viewer smoke
+  script.
+- **M4 — Kinematics** — closed-form rotary Stewart-platform inverse kinematics
+  (horn angles) plus iterative forward kinematics, geometry extracted from the
+  URDF. IK/FK round-trip to ~machine precision.
+- **M5 — Hardware backend** — `HardwareBackend` wiring the driver + Stewart IK
+  to the 9 servos (tick/radian conversion, torque enable, pose or joint
+  targets), exercised against the 9-servo fake bus.
+
+Remaining:
+
+- **M6 — Moods** — loader over the 84-entry emotion library + a stub
+  mood→move selector (the seam for later behavior-cloning work).
+- **M7 — Daemon + client + scripts** — WebSocket control API, a thin
+  `MiniClient`, and the end-to-end play scripts.
+- **M8 — Docs** — architecture + protocol/IK reference docs.
 
 Not yet solid / explicitly unverified:
 
