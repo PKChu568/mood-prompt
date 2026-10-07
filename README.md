@@ -151,10 +151,11 @@ Done:
   `MiniClient` with min-jerk `goto_target` interpolation, and the
   `run_daemon` / `list_moods` / `play_mood` scripts. Exercised end to end
   over a real local socket against the sim backend.
+- **M8 — Docs** — [architecture.md](docs/architecture.md) (layered design +
+  backend swap) and [protocol_reference.md](docs/protocol_reference.md)
+  (wire format, control table, Stewart IK as built).
 
-Remaining:
-
-- **M8 — Docs** — architecture + protocol/IK reference docs.
+All milestones complete; the stack runs end to end in sim.
 
 Not yet solid / explicitly unverified:
 

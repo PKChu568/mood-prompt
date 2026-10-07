@@ -39,51 +39,13 @@ one protocol (Dynamixel Protocol 2.0) accordingly. This is flagged as
 **unverified against real hardware** — worth double-checking once we have
 a physical unit, since two independent sources disagreed.
 
-## Technical reference (for implementation)
+## Technical reference
 
-### Dynamixel Protocol 2.0 wire format
-- Packet: `0xFF 0xFF 0xFD 0x00 [ID] [LEN_L] [LEN_H] [INSTRUCTION] [PARAMS...] [CRC_L] [CRC_H]`
-  (status packets insert an Error byte right after Instruction).
-- CRC-16, polynomial `0x8005`, init 0, computed via lookup table over all
-  bytes from header through last parameter. Verify against ROBOTIS's
-  reference `update_crc()` table when implementing — "CRC-16/IBM" naming
-  is ambiguous across sources and this must match exactly or every real
-  servo will reject every packet.
-- Instructions needed: PING `0x01`, READ `0x02`, WRITE `0x03`, SYNC_READ
-  `0x82`, SYNC_WRITE `0x83`.
-- XL330-M288-T control table (address, size, area): Operating Mode (11, 1,
-  EEPROM), Torque Enable (64, 1, RAM), Goal Current (102, 2, RAM), Goal
-  Position (116, 4, RAM), Present Current (126, 2, RAM), Present Position
-  (132, 4, RAM), Hardware Error Status (70, 1, RAM, read-only).
-- Factory defaults: baud 57,600, ID 1 (bus requires re-IDing 9 servos to
-  unique addresses before use).
-- Source: emanual.robotis.com/docs/en/dxl/protocol2/,
-  .../docs/en/dxl/crc/, .../docs/en/dxl/x/xl330-m288/.
-
-### Rotary Stewart platform inverse kinematics
-MJCF body names (`stewart_link_rod`, `dc15_a01_horn_dummy`, ×6 each)
-confirm this is a **rotary** Stewart platform — servo horn + fixed-length
-rod, not linear actuators — so IK must solve for a horn rotation angle,
-not a leg length.
-
-Standard approach: for each leg *k*, compute the leg vector **l**_k = **T**
-+ R·**p**_k − **b**_k from desired platform pose (**T**, R) and known
-attachment geometry (platform point **p**_k, base point **b**_k, both
-fixed constants extractable from the MJCF). For a rotary joint, reduce the
-fixed-rod-length constraint to closed form via the identity a·sinθ+b·cosθ
-= R·sin(θ+φ), yielding intermediate terms e_k, f_k, g_k from the leg
-vector projected onto the horn's rotation plane:
-
-```
-α_k = asin(g_k / sqrt(e_k² + f_k²)) − atan2(f_k, e_k)
-```
-
-Reference derivation: Robert Eisele, "Inverse Kinematics of a Stewart
-Platform" (raw.org/research/inverse-kinematics-of-a-stewart-platform),
-with a working JS reference implementation at github.com/infusion/Stewart.
-This matches the *shape* of pollen-robotics' own
-`analytical_kinematics.py` (closed-form, no iteration) — we build our own
-version of that same idea rather than porting theirs.
+The wire-format and kinematics spec now lives in its own durable doc:
+[protocol_reference.md](protocol_reference.md) (CRC, control table,
+Stewart IK as actually built). See also [architecture.md](architecture.md)
+for the layered design and backend swap. This section is kept as a
+pointer so PLAN.md stays focused on planning.
 
 ## Root structure
 
