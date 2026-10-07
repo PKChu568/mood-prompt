@@ -146,11 +146,14 @@ Done:
 - **M6 — Moods** — loader over the 81-entry emotion library (metadata +
   per-frame head pose / antennas / body yaw trajectories) and a stub
   mood→move selector (the seam for later behavior-cloning work).
+- **M7 — Daemon + client + scripts** — WebSocket daemon owning a pluggable
+  backend (runs IK on incoming head poses, broadcasts state), a thin
+  `MiniClient` with min-jerk `goto_target` interpolation, and the
+  `run_daemon` / `list_moods` / `play_mood` scripts. Exercised end to end
+  over a real local socket against the sim backend.
 
 Remaining:
 
-- **M7 — Daemon + client + scripts** — WebSocket control API, a thin
-  `MiniClient`, and the end-to-end play scripts.
 - **M8 — Docs** — architecture + protocol/IK reference docs.
 
 Not yet solid / explicitly unverified:

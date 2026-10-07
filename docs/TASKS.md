@@ -229,30 +229,30 @@ Depends on M3 (backend), and ideally M5/M6 too since the scripts exist
 to exercise the whole stack, but the daemon/client plumbing itself only
 strictly needs M3.
 
-- [ ] **T7.1** `daemon/protocol_messages.py` — message schemas for the
+- [x] **T7.1** `daemon/protocol_messages.py` — message schemas for the
       daemon↔client WebSocket: `SetTargetMsg`, `GotoTargetMsg`,
       `GetStateMsg`/`StateMsg`. Plain dataclasses + a `to_json`/`from_json`
       pair (or use `json.dumps`/`dataclasses.asdict` directly — no need
       for a heavy serialization library here).
-- [ ] **T7.2** `daemon/server.py` — `Daemon` class: takes a `Backend`
+- [x] **T7.2** `daemon/server.py` — `Daemon` class: takes a `Backend`
       instance, opens a `websockets` server, on each incoming message
       calls the corresponding `Backend` method, on a timer broadcasts
       current state to connected clients.
-- [ ] **T7.3** `daemon/server.py` — CLI entry (`if __name__ ==
+- [x] **T7.3** `daemon/server.py` — CLI entry (`if __name__ ==
       "__main__"` or a small `argparse`) supporting `--backend sim`
       (constructs `MujocoBackend`) and `--backend hardware --port
       /dev/ttyUSB0` (constructs `HardwareBackend`).
-- [ ] **T7.4** `client/mini_client.py` — `MiniClient.__init__(host,
+- [x] **T7.4** `client/mini_client.py` — `MiniClient.__init__(host,
       port)` connects over WebSocket; `set_target(...)`,
       `goto_target(..., duration)` (client-side interpolation, matches
       the pattern seen in pollen's SDK — linear or min-jerk, pick one to
       start), `get_present_joints()`.
-- [ ] **T7.5** `scripts/run_daemon.py` — thin CLI wrapper around
+- [x] **T7.5** `scripts/run_daemon.py` — thin CLI wrapper around
       `daemon/server.py`'s entry point (or just document running the
       module directly — decide based on how T7.3 ends up shaped).
-- [ ] **T7.6** `scripts/list_moods.py` — uses `moods/library.py` to
+- [x] **T7.6** `scripts/list_moods.py` — uses `moods/library.py` to
       print all mood names + descriptions.
-- [ ] **T7.7** `scripts/play_mood.py <mood_name>` — connects
+- [x] **T7.7** `scripts/play_mood.py <mood_name>` — connects
       `MiniClient` to a running daemon, loads a trajectory via
       `moods/library.py`, steps through it calling `set_target` at the
       trajectory's timestamps.
