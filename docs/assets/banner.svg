@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 230" width="900" height="230" role="img" aria-label="Mood-Prompt">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#010409"/>
+    </linearGradient>
+    <linearGradient id="phos" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#39d353"/>
+      <stop offset="0.6" stop-color="#2ea043"/>
+      <stop offset="1" stop-color="#39d353"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.0" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- terminal window -->
+  <rect x="0" y="0" width="900" height="230" rx="14" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="899" height="229" rx="14" fill="none" stroke="#30363d" stroke-width="1"/>
+
+  <!-- title bar -->
+  <circle cx="28" cy="26" r="6" fill="#ff5f56"/>
+  <circle cx="50" cy="26" r="6" fill="#ffbd2e"/>
+  <circle cx="72" cy="26" r="6" fill="#27c93f"/>
+  <text x="450" y="31" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#8b949e">— mood-prompt — zsh —</text>
+  <line x1="0" y1="48" x2="900" y2="48" stroke="#30363d" stroke-width="1"/>
+
+  <!-- scanline subtlety -->
+  <g opacity="0.05">
+    <rect x="0" y="80" width="900" height="2" fill="#39d353"/>
+    <rect x="0" y="130" width="900" height="2" fill="#39d353"/>
+    <rect x="0" y="180" width="900" height="2" fill="#39d353"/>
+  </g>
+
+  <!-- prompt line -->
+  <text x="34" y="102" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20">
+    <tspan fill="#58a6ff">~/ml/Mood-Prompt</tspan><tspan fill="#8b949e"> $ </tspan><tspan fill="#c9d1d9">./run --mood</tspan>
+  </text>
+
+  <!-- wordmark: real styled monospace text (no fragile ASCII art) -->
+  <text x="34" y="182" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="56" font-weight="700" letter-spacing="1" fill="url(#phos)" filter="url(#glow)">Mood-Prompt</text>
+
+  <!-- subtitle -->
+  <text x="38" y="212" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" fill="#8b949e">from-scratch Reachy Mini control stack</text>
+
+  <!-- blinking cursor at the end of the prompt line -->
+  <rect x="477" y="86" width="11" height="20" fill="#39d353">
+    <animate attributeName="opacity" values="1;1;0;0" dur="1.1s" repeatCount="indefinite"/>
+  </rect>
+</svg>

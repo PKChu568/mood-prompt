@@ -1,14 +1,25 @@
-# Mood-Prompt
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="Mood-Prompt" width="760">
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
-[![MuJoCo](https://img.shields.io/badge/MuJoCo-3.15-orange.svg)](https://mujoco.org)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://docs.astral.sh/uv/)
+<p align="center">
+  <em>A from-scratch control stack for the Reachy Mini robot — written for the joy of it. 🤖💚</em>
+</p>
 
-A from-scratch control stack for the Reachy Mini robot — our own Dynamixel
-Protocol 2.0 driver, Stewart-platform inverse kinematics, pluggable
-hardware/MuJoCo-sim backend, WebSocket daemon + client, and a mood/expression
-layer — built without depending on `pip install reachy_mini`.
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
+  <a href="https://mujoco.org"><img src="https://img.shields.io/badge/MuJoCo-3.15-orange.svg" alt="MuJoCo"></a>
+  <a href="https://docs.astral.sh/uv/"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json" alt="uv"></a>
+  <img src="https://img.shields.io/badge/built-for%20fun-ff69b4.svg" alt="Built for fun">
+</p>
+
+---
+
+Our own Dynamixel Protocol 2.0 driver, Stewart-platform inverse kinematics,
+pluggable hardware/MuJoCo-sim backend, WebSocket daemon + client, and a
+mood/expression layer — the whole stack, built from scratch without depending
+on `pip install reachy_mini`.
 
 ## Setup
 
@@ -118,55 +129,6 @@ We don't own the physical robot yet, so all development runs against the MuJoCo
 sim and a virtual Dynamixel servo (`tests/mock_hardware/`) that speaks real
 Protocol 2.0 bytes — exercising the driver's full request/response/timeout path
 without hardware.
-
-## Status
-
-Work in progress. See [docs/PLAN.md](docs/PLAN.md) for the full plan and
-technical reference, and [docs/TASKS.md](docs/TASKS.md) for the milestone
-breakdown.
-
-Done:
-
-- **M0 — Bootstrap** — `uv` project, Python 3.11+, deps pinned in `uv.lock`,
-  CI running `pytest` on 3.11 + 3.12.
-- **M1 — Protocol** — table-based CRC-16 and Protocol 2.0 packet
-  encode/decode, validated against ROBOTIS's published example byte sequences.
-- **M2 — Driver** — `DynamixelBus` serial I/O with timeout/retry and a `Servo`
-  named-register wrapper, exercised end-to-end against a virtual Dynamixel
-  servo that speaks real Protocol 2.0 bytes.
-- **M3 — Sim backend** — `Backend` abstraction + `MujocoBackend` driving the
-  9 actuated joints, with a headless convergence test and a viewer smoke
-  script.
-- **M4 — Kinematics** — closed-form rotary Stewart-platform inverse kinematics
-  (horn angles) plus iterative forward kinematics, geometry extracted from the
-  URDF. IK/FK round-trip to ~machine precision.
-- **M5 — Hardware backend** — `HardwareBackend` wiring the driver + Stewart IK
-  to the 9 servos (tick/radian conversion, torque enable, pose or joint
-  targets), exercised against the 9-servo fake bus.
-- **M6 — Moods** — loader over the 81-entry emotion library (metadata +
-  per-frame head pose / antennas / body yaw trajectories) and a stub
-  mood→move selector (the seam for later behavior-cloning work).
-- **M7 — Daemon + client + scripts** — WebSocket daemon owning a pluggable
-  backend (runs IK on incoming head poses, broadcasts state), a thin
-  `MiniClient` with min-jerk `goto_target` interpolation, and the
-  `run_daemon` / `list_moods` / `play_mood` scripts. Exercised end to end
-  over a real local socket against the sim backend.
-- **M8 — Docs** — [architecture.md](docs/architecture.md) (layered design +
-  backend swap) and [protocol_reference.md](docs/protocol_reference.md)
-  (wire format, control table, Stewart IK as built).
-
-All milestones complete; the stack runs end to end in sim.
-
-Not yet solid / explicitly unverified:
-
-- `backend/hardware.py` and the real Dynamixel driver have **not** been
-  validated against physical servos — no robot is available yet. The
-  mock-hardware tests are the best substitute until hardware arrives.
-- The servo layout (all 9 Dynamixel on one TTL bus) is from datasheet
-  research and should be double-checked against a real unit; two sources
-  disagreed.
-- Stewart IK geometry constants are checked only against the URDF/MJCF
-  numbers, not a real robot.
 
 ## Acknowledgements
 
