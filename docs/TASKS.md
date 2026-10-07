@@ -202,23 +202,24 @@ the top of the file.
 Depends on nothing but the dataset already in `robot/reachy_mini_emotions_library/`.
 Fully parallel with M2–M5 — pure data loading.
 
-- [ ] **T6.1** `moods/library.py` — `load_metadata() -> list[MoodEntry]`
+- [x] **T6.1** `moods/library.py` — `load_metadata() -> list[MoodEntry]`
       parsing `metadata.jsonl` (title, description, motion_file,
       file_name).
-- [ ] **T6.2** `moods/library.py` — `load_trajectory(name: str) ->
+- [x] **T6.2** `moods/library.py` — `load_trajectory(name: str) ->
       Trajectory` parsing the named `.json` file's `time`/`set_target_data`
       arrays into numpy arrays.
-- [ ] **T6.3** `tests/test_moods_library.py` — for every entry in
+- [x] **T6.3** `tests/test_moods_library.py` — for every entry in
       `metadata.jsonl`: assert the referenced `.json` and audio file
       exist, assert `len(time) == len(set_target_data)`, assert no NaNs.
-- [ ] **T6.4** `moods/selector.py` — `select_mood(text: str) -> str`:
+- [x] **T6.4** `moods/selector.py` — `select_mood(text: str) -> str`:
       case-insensitive substring match against loaded titles/descriptions,
       returns the best-matching mood name (or a documented fallback like
       `"curious1"` if nothing matches). Explicitly a stub — docstring
       says so and points at PLAN.md's later behavior-cloning phase.
 
 **Done when:** `uv run pytest tests/test_moods_library.py` passes on
-all 84 entries.
+all 81 entries (the dataset has 81 metadata records; the
+plan's "84" was an estimate).
 
 ---
 
