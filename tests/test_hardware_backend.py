@@ -66,12 +66,18 @@ def test_set_target_joints_round_trips(backend):
 
 
 def test_set_target_pose_uses_ik(backend):
-    # Identity pose -> horn angles ~0; body yaw 0; antennas held.
+    # Identity pose is the neutral head pose; the Stewart horns sit at their
+    # physical rest angle (~+/-0.626 rad), not zero. The backend should
+    # command exactly the IK solution for each horn (body yaw stays 0).
+    from mood_prompt.kinematics.stewart_ik import StewartIK
+
     pose = np.eye(4)
+    expected_horns = StewartIK().inverse_kinematics(pose)
     backend.set_target_pose(pose, antennas=[0.0, 0.0])
     head, _ = backend.get_present_joints()
     tick_rad = (2 * math.pi) / 4096
-    assert head == pytest.approx([0.0] * 7, abs=2 * tick_rad)
+    assert head[0] == pytest.approx(0.0, abs=2 * tick_rad)  # body yaw
+    assert head[1:] == pytest.approx(expected_horns, abs=2 * tick_rad)
 
 
 def test_wrong_joint_count_raises(backend):
