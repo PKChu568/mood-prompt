@@ -268,9 +268,9 @@ another, see the MuJoCo viewer move.
 Can be done incrementally alongside any milestone above, or as a final
 pass. Low-risk, no code dependencies.
 
-- [ ] **T8.1** `docs/architecture.md` — the layered-architecture diagram
+- [x] **T8.1** `docs/architecture.md` — the layered-architecture diagram
       and backend-swap explanation from the research conversation.
-- [ ] **T8.2** `docs/protocol_reference.md` — lift the "Technical
+- [x] **T8.2** `docs/protocol_reference.md` — lift the "Technical
       reference" section from `PLAN.md` into its own durable doc (CRC
       details, control table, Stewart IK derivation) so `PLAN.md` can
       stay focused on planning and this becomes the spec of record.
